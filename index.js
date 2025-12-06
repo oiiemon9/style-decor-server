@@ -3,6 +3,7 @@ const app = express();
 require('dotenv').config();
 const cors = require('cors');
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+const admin = require('firebase-admin');
 const port = process.env.PORT || 3000;
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.gj5u2pw.mongodb.net/?appName=Cluster0`;
@@ -14,8 +15,27 @@ const client = new MongoClient(uri, {
   },
 });
 
+const serviceAccount = require('./style-decor-firebase-adminsdk.json');
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+});
+
 app.use(cors());
 app.use(express.json());
+
+const verifyFireBaseToken = async (req, res, next) => {
+  if (!req.headers.authorization) {
+    return res.status(401).send({ message: 'Unauthorized access' });
+  }
+  const token = req.headers.authorization.split(' ')[1];
+  try {
+    const decodedUser = await admin.auth().verifyIdToken(token);
+    next();
+  } catch (error) {
+    return res.status(401).send({ message: 'Unauthorized access' });
+  }
+};
 
 app.get('/', (req, res) => {
   res.send('Hello World!');
