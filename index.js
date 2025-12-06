@@ -33,6 +33,7 @@ async function run() {
 
     app.post('/users', async (req, res) => {
       const user = req.body;
+      user.role = 'user';
       const query = { email: user.email };
       const existingUser = await usersCollection.findOne(query);
       if (existingUser) {
@@ -40,6 +41,12 @@ async function run() {
       }
       const result = await usersCollection.insertOne(user);
       res.send(result);
+    });
+
+    app.get('/users', async (req, res) => {
+      const cursor = usersCollection.find();
+      const users = await cursor.toArray();
+      res.send(users);
     });
 
     await client.db('admin').command({ ping: 1 });
