@@ -30,7 +30,7 @@ const verifyFireBaseToken = async (req, res, next) => {
   }
   const token = req.headers.authorization.split(' ')[1];
   try {
-    const decodedUser = await admin.auth().verifyIdToken(token);
+    const decoded = await admin.auth().verifyIdToken(token);
     next();
   } catch (error) {
     return res.status(401).send({ message: 'Unauthorized access' });
@@ -50,6 +50,7 @@ async function run() {
     await client.connect();
     const db = client.db('styleDecor');
     const usersCollection = db.collection('users');
+    const servicesCollection = db.collection('services');
 
     app.post('/users', async (req, res) => {
       const user = req.body;
@@ -86,6 +87,13 @@ async function run() {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await usersCollection.deleteOne(query);
+      res.send(result);
+    });
+
+    app.post('/service-upload', verifyFireBaseToken, async (req, res) => {
+      const service = req.body;
+      service.createdAt = new Date();
+      const result = await servicesCollection.insertOne(service);
       res.send(result);
     });
 
