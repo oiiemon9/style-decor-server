@@ -6,6 +6,9 @@ const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const admin = require('firebase-admin');
 const port = process.env.PORT || 3000;
 
+//stripe payment gateway setup
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.gj5u2pw.mongodb.net/?appName=Cluster0`;
 const client = new MongoClient(uri, {
   serverApi: {
@@ -25,6 +28,7 @@ app.use(cors());
 app.use(express.json());
 
 const verifyFireBaseToken = async (req, res, next) => {
+  console.log(verifyFireBaseToken);
   if (!req.headers.authorization) {
     return res.status(401).send({ message: 'Unauthorized access' });
   }
@@ -51,6 +55,7 @@ async function run() {
     const db = client.db('styleDecor');
     const usersCollection = db.collection('users');
     const servicesCollection = db.collection('services');
+    const bookingsCollection = db.collection('bookings');
 
     app.post('/users', async (req, res) => {
       const user = req.body;
@@ -95,6 +100,78 @@ async function run() {
       service.createdAt = new Date();
       const result = await servicesCollection.insertOne(service);
       res.send(result);
+    });
+    app.get('/services', async (req, res) => {
+      const cursor = servicesCollection.find().sort({ createdAt: -1 });
+      const services = await cursor.toArray();
+      res.send(services);
+    });
+
+    app.get('/services/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const service = await servicesCollection.findOne(query);
+      res.send(service);
+    });
+
+    // stripe payment
+    app.post(
+      '/create-checkout-session',
+      verifyFireBaseToken,
+      async (req, res) => {
+        const serviceInfo = req.body;
+
+        console.log(serviceInfo);
+
+        const session = await stripe.checkout.sessions.create({
+          line_items: [
+            {
+              price_data: {
+                currency: 'usd',
+                product_data: {
+                  name: serviceInfo.serviceTitle,
+                },
+                unit_amount: serviceInfo.totalPrice * 100,
+              },
+
+              quantity: 1,
+            },
+          ],
+          customer_email: serviceInfo.email,
+          mode: 'payment',
+          metadata: {
+            name: serviceInfo.name,
+            email: serviceInfo.email,
+            location: serviceInfo.location,
+            phone: serviceInfo.phone,
+            note: serviceInfo.note,
+            payment: serviceInfo.payment,
+            serviceId: serviceInfo.serviceId,
+            serviceTitle: serviceInfo.serviceTitle,
+            quantity: serviceInfo.quantity,
+            totalPrice: serviceInfo.totalPrice,
+            paymentStatus: serviceInfo.paymentStatus,
+            createdAt: new Date(),
+          },
+          success_url: `${process.env.DOMAIN_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+          cancel_url: `${process.env.DOMAIN_URL}/payment-failed`,
+        });
+        res.send({ url: session.url });
+      }
+    );
+
+    app.post('/payment-success', verifyFireBaseToken, async (req, res) => {
+      const sessionId = req.query.session_id;
+      const session = await stripe.checkout.sessions.retrieve(sessionId);
+      if (session) {
+        const bookingDetails = session.metadata;
+        if (session.payment_status === 'paid') {
+          bookingDetails.paymentStatus = session.payment_status;
+        }
+        bookingDetails.transactionId = session.payment_intent;
+        const result = await bookingsCollection.insertOne(bookingDetails);
+        res.send(result);
+      }
     });
 
     await client.db('admin').command({ ping: 1 });
