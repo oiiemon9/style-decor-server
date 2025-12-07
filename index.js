@@ -121,8 +121,6 @@ async function run() {
       async (req, res) => {
         const serviceInfo = req.body;
 
-        console.log(serviceInfo);
-
         const session = await stripe.checkout.sessions.create({
           line_items: [
             {
@@ -148,10 +146,12 @@ async function run() {
             payment: serviceInfo.payment,
             serviceId: serviceInfo.serviceId,
             serviceTitle: serviceInfo.serviceTitle,
+            serviceImage: serviceInfo.serviceImage,
+            serviceDate: serviceInfo.eventDate,
             quantity: serviceInfo.quantity,
             totalPrice: serviceInfo.totalPrice,
             paymentStatus: serviceInfo.paymentStatus,
-            createdAt: new Date(),
+            decorator: null,
           },
           success_url: `${process.env.DOMAIN_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
           cancel_url: `${process.env.DOMAIN_URL}/payment-failed`,
@@ -171,6 +171,7 @@ async function run() {
       }
       if (session) {
         const bookingDetails = session.metadata;
+        bookingDetails.createAt = new Date();
         if (session.payment_status === 'paid') {
           bookingDetails.paymentStatus = session.payment_status;
         }
@@ -178,6 +179,17 @@ async function run() {
         const result = await bookingsCollection.insertOne(bookingDetails);
         res.send(result);
       }
+    });
+
+    app.get('/bookings', verifyFireBaseToken, async (req, res) => {
+      const result = await bookingsCollection.find().toArray();
+      res.send(result);
+    });
+
+    app.get('/available-decorator', verifyFireBaseToken, async (req, res) => {
+      const query = { role: 'decorator' };
+      const result = await usersCollection.find(query).toArray();
+      res.send(result);
     });
 
     await client.db('admin').command({ ping: 1 });
