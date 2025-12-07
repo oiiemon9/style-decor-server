@@ -163,6 +163,12 @@ async function run() {
     app.post('/payment-success', verifyFireBaseToken, async (req, res) => {
       const sessionId = req.query.session_id;
       const session = await stripe.checkout.sessions.retrieve(sessionId);
+      const find = await bookingsCollection.findOne({
+        transactionId: session.payment_intent,
+      });
+      if (find) {
+        return;
+      }
       if (session) {
         const bookingDetails = session.metadata;
         if (session.payment_status === 'paid') {
