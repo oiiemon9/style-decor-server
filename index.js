@@ -352,6 +352,16 @@ async function run() {
       }
     );
 
+    app.get('/complete-service', verifyFireBaseToken, async (req, res) => {
+      const { email } = req.query;
+      const query = {
+        'decorator.email': email,
+        'bookingStatus.5.status': 'Completed',
+      };
+      const result = await bookingsCollection.find(query).toArray();
+      res.send(result);
+    });
+
     await client.db('admin').command({ ping: 1 });
     console.log(
       'Pinged your deployment. You successfully connected to MongoDB!'
