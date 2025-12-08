@@ -247,6 +247,101 @@ async function run() {
       res.send(result);
     });
 
+    app.patch('/booking-status/:id', verifyFireBaseToken, async (req, res) => {
+      const { id } = req.params;
+      const { bookingStatus, decoratorInfo } = req.body;
+      console.log(id);
+      console.log(bookingStatus, decoratorInfo);
+
+      const query = { _id: new ObjectId(id) };
+      const update = {
+        $set: { decorator: decoratorInfo, bookingStatus: bookingStatus },
+      };
+      const options = {};
+      const result = await bookingsCollection.updateOne(query, update, options);
+      const userStatus = await usersCollection.updateOne(
+        {
+          email: decoratorInfo.email,
+        },
+        { $set: { status: 'busy' } }
+      );
+      res.send(result);
+    });
+
+    app.patch(
+      '/booking-status-update/:id',
+      verifyFireBaseToken,
+      async (req, res) => {
+        const { id } = req.params;
+        const updateNumber = req.body.update;
+        if (updateNumber === 2) {
+          const query = { _id: new ObjectId(id) };
+          const result = await bookingsCollection.updateOne(query, {
+            $set: {
+              'bookingStatus.1': {
+                status: 'Planning Phase',
+                time: new Date(),
+              },
+            },
+          });
+          res.send(result);
+          return;
+        }
+        if (updateNumber === 3) {
+          const query = { _id: new ObjectId(id) };
+          const result = await bookingsCollection.updateOne(query, {
+            $set: {
+              'bookingStatus.2': {
+                status: 'Materials Prepared',
+                time: new Date(),
+              },
+            },
+          });
+          res.send(result);
+          return;
+        }
+        if (updateNumber === 4) {
+          const query = { _id: new ObjectId(id) };
+          const result = await bookingsCollection.updateOne(query, {
+            $set: {
+              'bookingStatus.3': {
+                status: 'On the Way to Venue',
+                time: new Date(),
+              },
+            },
+          });
+          res.send(result);
+          return;
+        }
+        if (updateNumber === 5) {
+          const query = { _id: new ObjectId(id) };
+          const result = await bookingsCollection.updateOne(query, {
+            $set: {
+              'bookingStatus.4': {
+                status: 'Setup in Progress',
+                time: new Date(),
+              },
+            },
+          });
+          res.send(result);
+          return;
+        }
+        if (updateNumber === 6) {
+          const query = { _id: new ObjectId(id) };
+          const result = await bookingsCollection.updateOne(query, {
+            $set: {
+              'bookingStatus.5': {
+                status: 'Completed',
+                time: new Date(),
+              },
+            },
+          });
+          res.send(result);
+          return;
+        }
+      }
+    );
+
     await client.db('admin').command({ ping: 1 });
     console.log(
       'Pinged your deployment. You successfully connected to MongoDB!'
