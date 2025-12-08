@@ -82,6 +82,7 @@ async function run() {
       const updateDoc = {
         $set: {
           role: updatedUser.role,
+          status: 'open',
         },
       };
       const result = await usersCollection.updateOne(filter, updateDoc);
@@ -187,10 +188,37 @@ async function run() {
     });
 
     app.get('/available-decorator', verifyFireBaseToken, async (req, res) => {
-      const query = { role: 'decorator' };
+      const query = { role: 'decorator', status: 'open' };
       const result = await usersCollection.find(query).toArray();
       res.send(result);
     });
+
+    app.patch(
+      '/bookings-request/:decoratorID',
+      verifyFireBaseToken,
+      async (req, res) => {
+        const { decoratorID } = req.params;
+        const bookingId = req.body;
+        const query = { _id: new ObjectId(decoratorID) };
+        const update = { $set: bookingId };
+        const options = {};
+        const result = await usersCollection.updateOne(query, update, options);
+        if (result.modifiedCount) {
+          await bookingsCollection.updateOne(
+            { _id: new ObjectId(bookingId.bookingId) },
+            {
+              $set: { decorator: 'pending' },
+            },
+            options
+          );
+        }
+        res.send(result);
+      }
+    );
+
+    // app.patch('/booking-decorator-select', verifyFireBaseToken, async(req, res)=>{
+
+    // })
 
     await client.db('admin').command({ ping: 1 });
     console.log(
