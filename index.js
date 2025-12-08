@@ -216,9 +216,36 @@ async function run() {
       }
     );
 
-    // app.patch('/booking-decorator-select', verifyFireBaseToken, async(req, res)=>{
+    app.get('/decorator-services', verifyFireBaseToken, async (req, res) => {
+      const { email } = req.query;
 
-    // })
+      const query = [
+        {
+          $match: { email: email },
+        },
+        {
+          $addFields: {
+            bookingObjId: { $toObjectId: '$bookingId' },
+          },
+        },
+        {
+          $lookup: {
+            from: 'bookings',
+            localField: 'bookingObjId',
+            foreignField: '_id',
+            as: 'bookingInfo',
+          },
+        },
+        {
+          $unwind: {
+            path: '$bookingInfo',
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+      ];
+      const result = await usersCollection.aggregate(query).toArray();
+      res.send(result);
+    });
 
     await client.db('admin').command({ ping: 1 });
     console.log(
