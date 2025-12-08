@@ -183,7 +183,10 @@ async function run() {
     });
 
     app.get('/bookings', verifyFireBaseToken, async (req, res) => {
-      const result = await bookingsCollection.find().toArray();
+      const result = await bookingsCollection
+        .find()
+        .sort({ createAt: -1 })
+        .toArray();
       res.send(result);
     });
 
@@ -274,6 +277,8 @@ async function run() {
       async (req, res) => {
         const { id } = req.params;
         const updateNumber = req.body.update;
+        const email = req.body.decoratorEmail;
+
         if (updateNumber === 2) {
           const query = { _id: new ObjectId(id) };
           const result = await bookingsCollection.updateOne(query, {
@@ -336,6 +341,11 @@ async function run() {
               },
             },
           });
+          const updateDecoratorStatus = await usersCollection.updateOne(
+            { email: email },
+            { $set: { status: 'open' } },
+            {}
+          );
           res.send(result);
           return;
         }
