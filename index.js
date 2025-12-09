@@ -57,6 +57,25 @@ async function run() {
     const servicesCollection = db.collection('services');
     const bookingsCollection = db.collection('bookings');
 
+    const verifyDecorator = async (req, res, next) => {
+      const { email } = req.query;
+      const user = await usersCollection.findOne({ email: email });
+      if (user.role === 'decorator') {
+        next();
+      } else {
+        return res.status(401).send({ message: 'Unauthorized access' });
+      }
+    };
+    const verifyAdmin = async (req, res, next) => {
+      const { email } = req.query;
+      const user = await usersCollection.findOne({ email: email });
+      if (user?.role === 'admin') {
+        next();
+      } else {
+        return res.status(401).send({ message: 'Unauthorized access' });
+      }
+    };
+
     app.post('/users', async (req, res) => {
       const user = req.body;
       user.role = 'user';
@@ -69,10 +88,21 @@ async function run() {
       res.send(result);
     });
 
-    app.get('/users', async (req, res) => {
+    app.get('/users', verifyAdmin, async (req, res) => {
       const cursor = usersCollection.find();
       const users = await cursor.toArray();
       res.send(users);
+    });
+
+    app.get('/user-role', async (req, res) => {
+      const { email } = req.query;
+      const query = { email: email };
+      const projectFields = { role: 1 };
+      const result = await usersCollection.findOne(query, {
+        projection: { role: 1 },
+      });
+
+      res.send(result);
     });
 
     app.patch('/users/:id', async (req, res) => {
@@ -182,7 +212,7 @@ async function run() {
       }
     });
 
-    app.get('/bookings', verifyFireBaseToken, async (req, res) => {
+    app.get('/bookings', verifyFireBaseToken, verifyAdmin, async (req, res) => {
       const result = await bookingsCollection
         .find()
         .sort({ createAt: -1 })
@@ -219,36 +249,41 @@ async function run() {
       }
     );
 
-    app.get('/decorator-services', verifyFireBaseToken, async (req, res) => {
-      const { email } = req.query;
+    app.get(
+      '/decorator-services',
+      verifyFireBaseToken,
+      verifyDecorator,
+      async (req, res) => {
+        const { email } = req.query;
 
-      const query = [
-        {
-          $match: { email: email },
-        },
-        {
-          $addFields: {
-            bookingObjId: { $toObjectId: '$bookingId' },
+        const query = [
+          {
+            $match: { email: email },
           },
-        },
-        {
-          $lookup: {
-            from: 'bookings',
-            localField: 'bookingObjId',
-            foreignField: '_id',
-            as: 'bookingInfo',
+          {
+            $addFields: {
+              bookingObjId: { $toObjectId: '$bookingId' },
+            },
           },
-        },
-        {
-          $unwind: {
-            path: '$bookingInfo',
-            preserveNullAndEmptyArrays: true,
+          {
+            $lookup: {
+              from: 'bookings',
+              localField: 'bookingObjId',
+              foreignField: '_id',
+              as: 'bookingInfo',
+            },
           },
-        },
-      ];
-      const result = await usersCollection.aggregate(query).toArray();
-      res.send(result);
-    });
+          {
+            $unwind: {
+              path: '$bookingInfo',
+              preserveNullAndEmptyArrays: true,
+            },
+          },
+        ];
+        const result = await usersCollection.aggregate(query).toArray();
+        res.send(result);
+      }
+    );
 
     app.patch('/booking-status/:id', verifyFireBaseToken, async (req, res) => {
       const { id } = req.params;
@@ -352,15 +387,20 @@ async function run() {
       }
     );
 
-    app.get('/complete-service', verifyFireBaseToken, async (req, res) => {
-      const { email } = req.query;
-      const query = {
-        'decorator.email': email,
-        'bookingStatus.5.status': 'Completed',
-      };
-      const result = await bookingsCollection.find(query).toArray();
-      res.send(result);
-    });
+    app.get(
+      '/complete-service',
+      verifyFireBaseToken,
+      verifyDecorator,
+      async (req, res) => {
+        const { email } = req.query;
+        const query = {
+          'decorator.email': email,
+          'bookingStatus.5.status': 'Completed',
+        };
+        const result = await bookingsCollection.find(query).toArray();
+        res.send(result);
+      }
+    );
 
     await client.db('admin').command({ ping: 1 });
     console.log(
