@@ -387,6 +387,14 @@ async function run() {
       }
     );
 
+    app.get('/my-bookings', verifyFireBaseToken, async (req, res) => {
+      const { email } = req.query;
+
+      const query = { email: email };
+      const result = await bookingsCollection.find(query).toArray();
+      res.send(result);
+    });
+
     app.get(
       '/complete-service',
       verifyFireBaseToken,
