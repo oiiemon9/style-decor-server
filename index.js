@@ -391,7 +391,10 @@ async function run() {
       const { email } = req.query;
 
       const query = { email: email };
-      const result = await bookingsCollection.find(query).toArray();
+      const result = await bookingsCollection
+        .find(query)
+        .sort({ createAt: -1 })
+        .toArray();
       res.send(result);
     });
 
