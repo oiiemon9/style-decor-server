@@ -413,11 +413,43 @@ async function run() {
     app.get('/my-bookings', verifyFireBaseToken, async (req, res) => {
       const { email } = req.query;
 
-      const query = { email: email };
+      const query = {
+        email: email,
+        'bookingStatus.5.status': { $ne: 'Completed' },
+      };
       const result = await bookingsCollection
         .find(query)
         .sort({ createAt: -1 })
         .toArray();
+      res.send(result);
+    });
+    app.get('/booking-history', verifyFireBaseToken, async (req, res) => {
+      const { email } = req.query;
+
+      const query = {
+        email: email,
+        'bookingStatus.5.status': 'Completed',
+      };
+      const result = await bookingsCollection
+        .find(query)
+        .sort({ createAt: -1 })
+        .toArray();
+      res.send(result);
+    });
+
+    app.delete('/my-bookings/:id', verifyFireBaseToken, async (req, res) => {
+      const { id } = req.params;
+      console.log(id);
+      const query = { _id: new ObjectId(id) };
+      const result = await bookingsCollection.deleteOne(query);
+
+      const decoratorUpdate = await usersCollection.updateOne(
+        { bookingId: id },
+        {
+          $set: { status: 'open' },
+          $unset: { bookingId: '' },
+        }
+      );
       res.send(result);
     });
 
@@ -444,6 +476,73 @@ async function run() {
         .toArray();
       res.send(result);
     });
+
+    app.get(
+      '/bookings-dashboard-admin',
+      verifyFireBaseToken,
+      verifyAdmin,
+      async (req, res) => {
+        const pipeline = [
+          {
+            $addFields: {
+              serviceObjId: { $toObjectId: '$serviceId' },
+            },
+          },
+          {
+            $lookup: {
+              from: 'services',
+              localField: 'serviceObjId',
+              foreignField: '_id',
+              as: 'serviceDetails',
+            },
+          },
+          {
+            $unwind: {
+              path: '$serviceDetails',
+              preserveNullAndEmptyArrays: true,
+            },
+          },
+        ];
+        const result = await bookingsCollection.aggregate(pipeline).toArray();
+        res.send(result);
+      }
+    );
+
+    //decorator dashboard
+    app.get(
+      '/bookings-dashboard-decorator',
+      verifyFireBaseToken,
+      verifyDecorator,
+      async (req, res) => {
+        const { email } = req.query;
+        const pipeline = [
+          {
+            $match: { 'decorator.email': email },
+          },
+          {
+            $addFields: {
+              serviceObjId: { $toObjectId: '$serviceId' },
+            },
+          },
+          {
+            $lookup: {
+              from: 'services',
+              localField: 'serviceObjId',
+              foreignField: '_id',
+              as: 'serviceDetails',
+            },
+          },
+          {
+            $unwind: {
+              path: '$serviceDetails',
+              preserveNullAndEmptyArrays: true,
+            },
+          },
+        ];
+        const result = await bookingsCollection.aggregate(pipeline).toArray();
+        res.send(result);
+      }
+    );
 
     await client.db('admin').command({ ping: 1 });
     console.log(
