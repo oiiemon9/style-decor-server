@@ -133,7 +133,7 @@ async function run() {
       res.send(result);
     });
     app.get('/services', async (req, res) => {
-      const { search, category, min, max } = req.query;
+      const { search, category, min, max, limit, skip } = req.query;
       const query = {
         serviceTitle: { $regex: search, $options: 'i' },
       };
@@ -151,9 +151,14 @@ async function run() {
         }
       }
 
-      const cursor = servicesCollection.find(query).sort({ createdAt: -1 });
+      const cursor = servicesCollection
+        .find(query)
+        .limit(Number(limit))
+        .skip(Number(skip))
+        .sort({ createdAt: -1 });
       const services = await cursor.toArray();
-      res.send(services);
+      const count = await servicesCollection.countDocuments(query);
+      res.send({ services, total: count });
     });
 
     app.get('/services/:id', async (req, res) => {
