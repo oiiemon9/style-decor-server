@@ -413,6 +413,15 @@ async function run() {
       }
     );
 
+    app.get('/resent-service', async (req, res) => {
+      const result = await servicesCollection
+        .find()
+        .sort({ createdAt: -1 })
+        .limit(4)
+        .toArray();
+      res.send(result);
+    });
+
     await client.db('admin').command({ ping: 1 });
     console.log(
       'Pinged your deployment. You successfully connected to MongoDB!'
