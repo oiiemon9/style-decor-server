@@ -133,7 +133,25 @@ async function run() {
       res.send(result);
     });
     app.get('/services', async (req, res) => {
-      const cursor = servicesCollection.find().sort({ createdAt: -1 });
+      const { search, category, min, max } = req.query;
+      const query = {
+        serviceTitle: { $regex: search, $options: 'i' },
+      };
+      if (category) {
+        query.category = category;
+      }
+
+      if (min || max) {
+        query.price = {};
+        if (min) {
+          query.price.$gte = Number(min);
+        }
+        if (max) {
+          query.price.$lte = Number(max);
+        }
+      }
+
+      const cursor = servicesCollection.find(query).sort({ createdAt: -1 });
       const services = await cursor.toArray();
       res.send(services);
     });
