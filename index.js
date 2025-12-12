@@ -544,6 +544,39 @@ async function run() {
       }
     );
 
+    //
+    app.get(
+      '/all-services',
+      verifyFireBaseToken,
+      verifyAdmin,
+      async (req, res) => {
+        const result = await servicesCollection
+          .find()
+          .sort({ createdAt: -1 })
+          .toArray();
+        res.send(result);
+      }
+    );
+
+    app.patch(
+      '/services-active-update/:id',
+      verifyFireBaseToken,
+      verifyAdmin,
+      async (req, res) => {
+        const { isActive } = req.body;
+        const { id } = req.params;
+        const query = { _id: new ObjectId(id) };
+        const update = { $set: { isActive: isActive } };
+        const options = {};
+        const result = await servicesCollection.updateOne(
+          query,
+          update,
+          options
+        );
+        res.send(result);
+      }
+    );
+
     await client.db('admin').command({ ping: 1 });
     console.log(
       'Pinged your deployment. You successfully connected to MongoDB!'
