@@ -136,6 +136,7 @@ async function run() {
       const { search, category, min, max, limit, skip } = req.query;
       const query = {
         serviceTitle: { $regex: search, $options: 'i' },
+        isActive: true,
       };
       if (category) {
         query.category = category;
